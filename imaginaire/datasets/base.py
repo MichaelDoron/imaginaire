@@ -16,6 +16,8 @@ import numpy as np
 import torch
 import torch.utils.data as data
 import torchvision.transforms as transforms
+from torchvision.transforms import functional as F
+from torch import Tensor
 from PIL import Image
 
 from imaginaire.datasets.folder import FolderDataset
@@ -23,6 +25,16 @@ from imaginaire.datasets.lmdb import IMG_EXTENSIONS, LMDBDataset
 from imaginaire.utils.data import \
     (VIDEO_EXTENSIONS, Augmentor, load_from_folder, load_from_lmdb)
 from imaginaire.utils.lmdb import create_metadata
+
+class selfNormalize(torch.nn.Module):
+    def __init__(self, inplace=False):
+                super().__init__()
+                self.inplace = inplace
+
+    def forward(self, tensor: Tensor) -> Tensor:
+                mean = tensor.mean(axis=(-2,-1))
+                std = tensor.std(axis=(-2,-1))
+                return F.normalize(tensor, mean, std, self.inplace)
 
 
 class BaseDataset(data.Dataset):
@@ -231,10 +243,24 @@ class BaseDataset(data.Dataset):
         """
         transform_list = [transforms.ToTensor()]
         if normalize:
-            transform_list.append(
-                transforms.Normalize((0.5, 0.5, 0.5),
-                                     (0.5, 0.5, 0.5)))
+            transform_list.append(selfNormalize())
         return transforms.Compose(transform_list)
+
+    # def _get_transform(self, normalize):
+    #     r"""Convert numpy to torch tensor.
+
+    #     Args:
+    #         normalize (bool): Normalize image i.e. (x - 0.5) * 2.
+    #             Goes from [0, 1] -> [-1, 1].
+    #     Returns:
+    #         Composed list of torch transforms.
+    #     """
+    #     transform_list = [transforms.ToTensor()]
+    #     if normalize:
+    #         transform_list.append(
+    #             transforms.Normalize((0.5, 0.5, 0.5),
+    #                                  (0.5, 0.5, 0.5)))
+    #     return transforms.Compose(transform_list)
 
     def _add_dataset(self, root, filenames=None, metadata=None):
         r"""Adds an LMDB dataset to a list of datasets.
